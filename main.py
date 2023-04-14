@@ -16,7 +16,6 @@ def start(message):
     conversations.update({message.from_user.id: role})
     msg = bot.send_message(message.chat.id, 'Hello, my name is ChatGPT and I can answer almost every questsion! Ask '
                                             'me anything')
-    bot.register_next_step_handler(msg, chatgpt)
 
 
 @bot.callback_query_handler(func=lambda data: True)
@@ -41,7 +40,9 @@ def chatgpt(message):
                                                       callback_data=f'{message.from_user.id}[]{message.chat.id}')
     keyboard.add(reset_button)
     response = completion.choices[0].message.content
+    conversations[message.from_user.id].append({'role': 'user', 'content': message.text})
+    conversations[message.from_user.id].append({'role': 'assistant', 'content': response})
     bot.send_message(message.chat.id, response, reply_markup=keyboard)
 
 
-bot.polling(none_stop=True)
+bot.polling(non_stop=True)
