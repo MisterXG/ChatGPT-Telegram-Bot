@@ -1,46 +1,41 @@
-import openai
+from openai import OpenAI
 import telebot
 
-openai.api_key = ''  # Your openai secret key
+api_key = ''  # Your openai secret key
 token = ''  # Your telegram bot token
 
 bot = telebot.TeleBot(token)
+client = OpenAI(api_key=api_key)
 
-role = [{'role': 'system', 'content': ''}]  # Here you should write whose role ChatGPT will play
+role = ''  # Here you should write whose role ChatGPT will play
 conversations = {}
 
 
 @bot.message_handler(commands=['start'])
 def start(message):
     global role
-    conversations.update({message.from_user.id: role})
-    msg = bot.send_message(message.chat.id, 'Hello, my name is ChatGPT and I can answer almost every questsion! Ask '
-                                            'me anything')
+    conversations.update({message.from_user.id: [{'role': 'system', 'content': role}]})
+    bot.send_message(message.chat.id, 'Hello, my name is ChatGPT and I can answer almost every questsion! Ask me anything')
 
 
 @bot.callback_query_handler(func=lambda data: True)
 def reset(data):
     global role
-    d = data.data.split('[]')
-    conversations[int(d[0])] = role
-    bot.send_message(int(d[1]), 'Dialogue reset successfully!')
+    conversations[data.from_user.id] = [{'role': 'system', 'content': role}]
+    bot.send_message(data.message.chat.id), 'Dialogue reset successfully!')
 
 
 @bot.message_handler(content_types=['text'])
 def chatgpt(message):
-    completion = openai.ChatCompletion.create(
+    conversations[message.from_user.id].append({'role': 'user', 'content': message.text})
+    completion = client.chat.completions.create(
         model='gpt-3.5-turbo',
-        messages=conversations[message.from_user.id],
-        max_tokens=1024,
-        n=1,
-        stop=None,
-        temperature=0.7, )
+        messages=conversations[message.from_user.id]
+    )
     keyboard = telebot.types.InlineKeyboardMarkup()
-    reset_button = telebot.types.InlineKeyboardButton(text='reset dialogue',
-                                                      callback_data=f'{message.from_user.id}[]{message.chat.id}')
+    reset_button = telebot.types.InlineKeyboardButton(text='reset dialogue')
     keyboard.add(reset_button)
     response = completion.choices[0].message.content
-    conversations[message.from_user.id].append({'role': 'user', 'content': message.text})
     conversations[message.from_user.id].append({'role': 'assistant', 'content': response})
     bot.send_message(message.chat.id, response, reply_markup=keyboard)
 
